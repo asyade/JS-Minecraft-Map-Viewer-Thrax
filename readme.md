@@ -10,3 +10,4 @@ It's not minecraft for the web browser.
 * Some textures are not implemented.
 * Some Texture IDs are not implemented.
 * Some chunks may not be rendered on first load. Just move around and they should appear.
+http://imgur.com/a/BE4dA
