@@ -9,9 +9,29 @@ Region = function(file) {
 	this.file = file;
 	this.chunkOffsets = null;
 	this.rawChunkData = null;
-	this.chunks = {};
+	this.chunks = new Array(32*32);//{};
 	this.callbacks = [];
+	this.chunkAddr=(x,z)=>(z*32)+x;
 };
+
+
+Region.prototype.loadFromArrayBuffer = function(binaryChunkData){
+	this.chunkOffsets = new Uint32Array(binaryChunkData, 0, 1024);
+	this.rawChunkData = new Uint8Array(binaryChunkData, 8192);
+	this.loaded = true
+
+	//cache all the chunks
+	for (var x = 0; x < 32; x++ )
+	{
+		for (var y = 0; y < 32; y++) {
+			var c = this.getChunk(x,y);
+			if (c !== null && c !== undefined) {
+				c.load();
+			}
+		}
+	}
+}
+
 Region.prototype.load = function (callback) {
 	if (!this.loaded) {
 		var fr = new FileReader();
@@ -20,20 +40,7 @@ Region.prototype.load = function (callback) {
 		
 		fr.onload = function(event) {
 			var binaryChunkData = event.target.result;
-			self.chunkOffsets = new Uint32Array(binaryChunkData, 0, 1024);
-			self.rawChunkData = new Uint8Array(binaryChunkData, 8192);
-			self.loaded = true
-			
-			//cache all the chunks
-			for (var x = 0; x < 32; x++ )
-			{
-				for (var y = 0; y < 32; y++) {
-					var c = self.getChunk(x,y);
-					if (c !== null && c !== undefined) {
-						c.load();
-					}
-				}
-			}
+			self.loadFromArrayBuffer(binaryChunkData);
 			
 			if (callback) {
 				callback.call(this);
@@ -56,7 +63,7 @@ Region.prototype.existsChunk = function(x, z) {
 		if (z < 0 || z >= 32) {
 			return false;
 		}
-		var reader = new DataReader(this.rawChunkData);
+		//var reader = new DataReader(this.rawChunkData);
 		var num = this.chunkOffsets[x + z * 32];
 		var offset = ((num>>24)&0xff) | // move byte 3 to byte 0
 						((num<<8)&0xff0000) | // move byte 1 to byte 2
@@ -80,9 +87,10 @@ Region.prototype.getChunk = function(x, z) {
 		if (z < 0 || z >= 32) {
 			return null;
 		}
-		
-		if (this.chunks[[x,z]] !== undefined) {
-			return this.chunks[[x,z]];
+		var caddr=this.chunkAddr(x,z)
+		var ck=this.chunks[caddr];
+		if (ck !== undefined) {
+			return ck;
 		}
 		
 		var reader = new DataReader(this.rawChunkData);
@@ -95,7 +103,7 @@ Region.prototype.getChunk = function(x, z) {
 		var numSectors = offset & 0xFF;
 		
 		if (sectorNumber === 0 && numSectors === 0) {
-			this.chunks[[x,z]] = null
+			this.chunks[caddr] = null
 			return null;
 		}
 
@@ -106,7 +114,7 @@ Region.prototype.getChunk = function(x, z) {
 		if (compressionType === 1) {
 			// GZIP
 			alert("gzip is not supported");
-			this.chunks[[x,z]] = null;
+			this.chunks[caddr] = null;
 			return null;
 		} else if (compressionType === 2) {
 			// ZLIB
@@ -125,15 +133,15 @@ Region.prototype.getChunk = function(x, z) {
 
 			if (err != 0) {
 				console.log("err puffing " + err);
-				this.chunks[[x,z]] = null
+				this.chunks[caddr] = null
 				return null;
 			}
 
 			inflated = new Uint8Array(inflated);
 		}
 		
-		this.chunks[[x,z]] = new Chunk(inflated, x, z);
-		return this.chunks[[x,z]];
+		this.chunks[caddr] = new Chunk(inflated, x, z);
+		return this.chunks[caddr];
 	}
 	
 	return null;

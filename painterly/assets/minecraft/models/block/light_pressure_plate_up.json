@@ -1,0 +1,6 @@
+{
+    "parent": "block/pressure_plate_up_special",
+    "textures": {
+        "texture": "blocks/gold_block"
+    }
+}
